@@ -137,6 +137,11 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .pill.today { background: var(--today-blue); color: #FFFFFF; }
 .pill.late { background: #FB2C36; color: #FFFFFF; }
 .pill.flag { background: #FB2C36; color: #FFFFFF; }
+.pill.ev { background: var(--ink); color: #FFFFFF; }
+.pill.lab-school, .chip.lab-school[aria-pressed="true"] { background: var(--purple); color: #FFFFFF; }
+.pill.lab-work, .chip.lab-work[aria-pressed="true"] { background: var(--yellow); color: var(--ink); }
+.pill.lab-chores, .chip.lab-chores[aria-pressed="true"] { background: var(--lime); color: var(--ink); }
+.row.event .check { border-radius: 0; }
 
 
 .disclose { align-self: flex-start; background: var(--card); border: var(--line); border-radius: 0; box-shadow: var(--shadow-sm); padding: 8px 12px; font-weight: 700; font-size: 15px; }
@@ -205,6 +210,7 @@ nav.tabs {
 .day.got { background: var(--lime); }
 .day.off { border-style: dashed; color: var(--muted); }
 .day.is-today { box-shadow: var(--shadow-sm); }
+.day.future { opacity: 0.4; }
 .check.ghost { border-style: dashed; opacity: 0.5; }
 .empty.small { padding: 18px; }
 
@@ -230,6 +236,7 @@ nav.tabs {
 .mk.mk-task { background: var(--today-blue); }
 .mk.mk-chore { background: var(--purple); }
 .mk.mk-block { background: var(--lime); }
+.mk.mk-event { background: var(--ink); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px; border-top: var(--line); font-size: 12px; font-weight: 700; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .day-head { margin-top: 4px; }
@@ -254,6 +261,7 @@ nav.tabs {
 .block .b-time { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block.short { flex-direction: row; align-items: center; gap: 8px; padding-block: 0; }
 .block.short .b-time { opacity: 0.85; }
+.block:not(.short) .b-time { white-space: normal; }
 .block.dragging { box-shadow: var(--shadow); z-index: 3; cursor: grabbing; }
 .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; cursor: ns-resize; }
 .grip::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 24px; height: 3px; margin-left: -12px; background: currentColor; opacity: 0.55; }
@@ -264,6 +272,10 @@ nav.tabs {
 .bc-pink { background: var(--red); color: #FFFFFF; }
 .bc-purple { background: var(--purple); color: #FFFFFF; }
 .bc-green { background: var(--lime); color: var(--ink); }
+.bc-task { background: var(--card); color: var(--ink); border-style: dashed; }
+.bc-event { background: var(--ink); color: #FFFFFF; }
+.block.is-done { opacity: 0.55; }
+.block.is-done .b-title { text-decoration: line-through; }
 .chip.swatch-chip { width: 46px; height: 40px; padding: 0; }
 .chip.swatch-chip[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 3px; }
 .inline.times .input { width: auto; flex: 1 1 120px; min-width: 0; }
@@ -373,6 +385,7 @@ nav.tabs {
 .chip { border: var(--line); background: var(--card); border-radius: 0; padding: 8px 12px; font-size: 15px; font-weight: 600; box-shadow: var(--shadow-sm); }
 .chip[aria-pressed="true"] { background: var(--yellow); font-weight: 700; }
 .chip.imp[aria-pressed="true"] { background: #FB2C36; color: #FFFFFF; }
+.chip.ev[aria-pressed="true"] { background: var(--ink); color: #FFFFFF; }
 .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .inline .input { width: 88px; }
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -504,7 +517,9 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       tab: 'todo',
       todos: [
         { id: uid(), title: 'Call the dentist to book a cleaning', due: t, high: true, done: false, remind: `${t}T10:00` },
-        { id: uid(), title: 'Pick up dry cleaning', due: t, high: false, done: false },
+        { id: uid(), title: 'Pick up dry cleaning', due: t, high: false, done: false, label: 'chores' },
+        { id: uid(), title: 'Finish the weekly report', due: t, start: 14 * 60, end: 15 * 60, high: false, done: false, label: 'work' },
+        { id: uid(), type: 'event', title: 'Study group', due: t, start: 18 * 60, end: 19 * 60 + 30, high: false, done: false, label: 'school' },
         { id: uid(), title: 'Order a birthday gift', due: addDays(t, 3), high: false, done: false },
         { id: uid(), title: 'Renew car registration', due: addDays(t, 9), high: true, done: false },
         { id: uid(), title: 'Back up phone photos', due: null, high: false, done: false },
@@ -586,6 +601,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     return `${d === 0 ? '' : d === 1 ? 'Tomorrow ' : relLabel(date) + ' '}${fmtTime(toMin(at.slice(11)))}`;
   }
 
+  // An event whose day has passed counts as finished.
+  const isEvent = x => x.type === 'event';
+  const isPast = x => x.done || (isEvent(x) && !!x.due && x.due < today());
+  const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores']];
+  const labelPill = l => { const f = LABELS.find(([k]) => k === l); return f ? `<span class="pill lab-${f[0]}">${f[1]}</span>` : ''; };
   function dueChip(s, done) {
     if (!s) return '';
     const d = diffDays(s, today());
@@ -602,9 +622,12 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const t = today();
     let html = '';
     if (state.tab === 'todo') {
-      const due = state.todos.filter(x => !x.done && x.due && x.due <= t).length;
-      const open = state.todos.filter(x => !x.done).length;
-      html = due ? `<b>${plural(due, 'task')}</b> due today, ${open} open in all` : open ? `Nothing due today, ${open} open in all` : 'All clear';
+      const live = state.todos.filter(x => !isPast(x));
+      const due = live.filter(x => !isEvent(x) && x.due && x.due <= t).length;
+      const evs = live.filter(x => isEvent(x) && x.due === t).length;
+      const open = live.length;
+      const bits = [due && `<b>${plural(due, 'task')}</b> due`, evs && `<b>${plural(evs, 'event')}</b>`].filter(Boolean);
+      html = bits.length ? `${bits.join(' and ')} today, ${open} open in all` : open ? `Nothing due today, ${open} open in all` : 'All clear';
     } else if (state.tab === 'chores') {
       const due = state.chores.filter(c => c.next <= t).length;
       const doneToday = state.chores.filter(c => c.lastDone === t).length;
@@ -616,9 +639,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       html = due.length ? `<b>${got} of ${due.length}</b> habits done today` : 'No habits scheduled today';
     } else if (state.tab === 'calendar') {
       const mo = calMonth;
-      const tasks = state.todos.filter(x => !x.done && x.due && x.due.startsWith(mo)).length;
+      const inMo = state.todos.filter(x => !x.done && x.due && x.due.startsWith(mo));
+      const tasks = inMo.filter(x => !isEvent(x)).length, evs = inMo.length - tasks;
       const blocks = state.blocks.filter(b => b.date.startsWith(mo)).length;
-      html = `<b>${plural(tasks, 'task')}</b> due and ${plural(blocks, 'time block')} planned in ${MONTHS[Number(mo.slice(5)) - 1]}`;
+      html = `<b>${plural(tasks, 'task')}</b> due, ${plural(evs, 'event')} and ${plural(blocks, 'time block')} in ${MONTHS[Number(mo.slice(5)) - 1]}`;
     } else {
       const list = state.blocks.filter(b => b.date === blkDate);
       const mins = list.reduce((s, b) => s + b.end - b.start, 0);
@@ -640,11 +664,17 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
 
   // ---------- To-Do view ----------
   function todoRow(x) {
-    return `<div class="row ${x.done ? 'done' : ''} ${x.high && !x.done ? 'high' : ''}" data-row-id="${x.id}">
+    const done = isPast(x);
+    const meta = (isEvent(x) ? '<span class="pill ev">Event</span>' : '') + dueChip(x.due, done)
+      + (x.start != null ? `<span class="pill">${fmtTime(x.start)} – ${fmtTime(x.end)}</span>` : '')
+      + labelPill(x.label)
+      + (x.high && !done ? '<span class="pill flag">Important</span>' : '')
+      + (x.remind && !done ? bellPill(remindLabel(x.remind)) : '');
+    return `<div class="row ${done ? 'done' : ''} ${x.high && !done ? 'high' : ''} ${isEvent(x) ? 'event' : ''}" data-row-id="${x.id}">
       <button class="check" data-act="toggle-todo" data-id="${x.id}" aria-label="${x.done ? 'Mark not done' : 'Mark done'}">${ICON.tick}</button>
       <button class="row-body" data-act="edit-todo" data-id="${x.id}">
         <span class="row-title">${esc(x.title)}</span>
-        ${(x.due || x.high || (x.remind && !x.done)) ? `<span class="meta">${dueChip(x.due, x.done)}${x.high && !x.done ? '<span class="pill flag">Important</span>' : ''}${x.remind && !x.done ? bellPill(remindLabel(x.remind)) : ''}</span>` : ''}
+        ${meta ? `<span class="meta">${meta}</span>` : ''}
       </button>
     </div>`;
   }
@@ -671,22 +701,22 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   }
   function renderTodo() {
     const t = today();
-    const open = state.todos.filter(x => !x.done);
-    const byDue = ranked((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (b.high - a.high));
+    const open = state.todos.filter(x => !isPast(x));
+    const byDue = ranked((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (a.start ?? DAY_END) - (b.start ?? DAY_END) || (b.high - a.high));
     const late = open.filter(x => x.due && x.due < t).sort(byDue);
     const now = open.filter(x => x.due === t).sort(byDue);
     const soon = open.filter(x => x.due && x.due > t).sort(byDue);
     const any = open.filter(x => !x.due).sort(ranked((a, b) => b.high - a.high));
-    const done = state.todos.filter(x => x.done).sort((a, b) => (b.doneOn || '').localeCompare(a.doneOn || ''));
+    const done = state.todos.filter(isPast).sort((a, b) => (b.doneOn || b.due || '').localeCompare(a.doneOn || a.due || ''));
     if (!state.todos.length) {
-      return `<div class="empty"><div class="glyph">${ICON.todo}</div><h2>No tasks yet</h2><p>Tap the + button to add your first task. Give it a due date to see it under Today.</p></div>`;
+      return `<div class="empty"><div class="glyph">${ICON.todo}</div><h2>Nothing here yet</h2><p>Tap the + button to add a task or an event. Give it a date to see it under Today.</p></div>`;
     }
     let html = banner();
     html += group('Overdue', late, todoRow, 'late c-pink');
     html += group('Today', now, todoRow, 'c-yellow');
     html += group('Upcoming', soon, todoRow, 'c-purple');
     html += group('Anytime', any, todoRow, 'c-green');
-    if (!open.length) html += `<div class="empty"><div class="glyph">${ICON.todo}</div><h2>All done</h2><p>Every task is checked off. Tap + to add another.</p></div>`;
+    if (!open.length) html += `<div class="empty"><div class="glyph">${ICON.todo}</div><h2>All done</h2><p>Every task is checked off. Tap + to add a task or event.</p></div>`;
     if (done.length) {
       html += `<button class="disclose" data-act="toggle-done">${showDone ? 'Hide' : 'Show'} completed (${done.length})</button>`;
       if (showDone) html += `<div class="list">${done.map(todoRow).join('')}</div><button class="link-btn" data-act="clear-done">Delete all completed</button>`;
@@ -755,7 +785,9 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const t = today();
     const done = !!x.log[t];
     const st = streak(x);
-    const week = Array.from({ length: 7 }, (_, i) => addDays(t, i - 6));
+    // This week, Monday through Sunday.
+    const mon = addDays(t, -((parse(t).getDay() + 6) % 7));
+    const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
     return `<div class="row habit ${done ? 'done' : ''}" data-row-id="${x.id}">
       <button class="check" data-act="toggle-habit" data-id="${x.id}" data-day="${t}" aria-label="${done ? 'Undo today' : 'Mark done today'}">${ICON.tick}</button>
       <div class="habit-main">
@@ -765,7 +797,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         </button>
         <div class="week">${week.map(s => {
           const d = parse(s), got = !!x.log[s];
-          return `<button class="day ${got ? 'got' : ''} ${habitOn(x, s) ? '' : 'off'} ${s === t ? 'is-today' : ''}" data-act="toggle-habit" data-id="${x.id}" data-day="${s}" aria-pressed="${got}" aria-label="${DAYS[d.getDay()]}: ${got ? 'done' : 'not done'}">${WD[d.getDay()][0]}</button>`;
+          return `<button class="day ${got ? 'got' : ''} ${habitOn(x, s) ? '' : 'off'} ${s === t ? 'is-today' : ''} ${s > t ? 'future' : ''}" ${s > t ? 'disabled' : ''} data-act="toggle-habit" data-id="${x.id}" data-day="${s}" aria-pressed="${got}" aria-label="${DAYS[d.getDay()]}: ${got ? 'done' : 'not done'}">${WD[d.getDay()][0]}</button>`;
         }).join('')}</div>
       </div>
     </div>`;
@@ -779,7 +811,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     let html = banner();
     html += group('Today', state.habits.filter(x => habitOn(x, t)).sort(byOrder), habitRow, 'c-yellow');
     html += group('Other days', state.habits.filter(x => !habitOn(x, t)).sort(byOrder), habitRow, 'c-purple');
-    html += `<p class="hint">Tap a day in the strip to fill in a day you missed logging. Dashed days aren't on the habit's schedule.</p>`;
+    html += `<p class="hint">The strip shows this week from Monday to Sunday. Tap an earlier day to fill in one you missed logging. Dashed days aren't on the habit's schedule.</p>`;
     return html;
   }
 
@@ -820,7 +852,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const from = `${calMonth}-01`, to = `${calMonth}-${pad(n)}`;
     const marks = {};
     const bump = (s, k) => { (marks[s] = marks[s] || {})[k] = true; };
-    state.todos.forEach(x => { if (x.due && x.due >= from && x.due <= to && !x.done) bump(x.due, 'task'); });
+    state.todos.forEach(x => { if (x.due && x.due >= from && x.due <= to && !x.done) bump(x.due, isEvent(x) ? 'event' : 'task'); });
     state.chores.forEach(c => choreDates(c, from, to).forEach(s => bump(s, 'chore')));
     state.blocks.forEach(b => { if (b.date >= from && b.date <= to) bump(b.date, 'block'); });
     let cells = '';
@@ -829,10 +861,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       const s = `${calMonth}-${pad(d)}`, k = marks[s] || {};
       cells += `<button class="cal-day ${s === t ? 'is-today' : ''} ${s === calSel ? 'sel' : ''} ${s < t ? 'past' : ''}" data-act="cal-pick" data-day="${s}" aria-label="${longDate(s)}" aria-pressed="${s === calSel}">
         <span class="num">${d}</span>
-        <span class="marks">${k.task ? '<i class="mk mk-task"></i>' : ''}${k.chore ? '<i class="mk mk-chore"></i>' : ''}${k.block ? '<i class="mk mk-block"></i>' : ''}</span>
+        <span class="marks">${k.event ? '<i class="mk mk-event"></i>' : ''}${k.task ? '<i class="mk mk-task"></i>' : ''}${k.chore ? '<i class="mk mk-chore"></i>' : ''}${k.block ? '<i class="mk mk-block"></i>' : ''}</span>
       </button>`;
     }
-    const tasks = state.todos.filter(x => x.due === calSel);
+    const tasks = state.todos.filter(x => x.due === calSel).sort((a, b) => (a.start ?? DAY_END) - (b.start ?? DAY_END));
     const chores = state.chores.filter(c => choreDates(c, calSel, calSel).size);
     const blocks = state.blocks.filter(b => b.date === calSel).sort((a, b) => a.start - b.start);
     let html = banner();
@@ -843,13 +875,13 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         <button class="nav-btn" data-act="cal-nav" data-dir="1" aria-label="Next month">›</button>
       </div>
       <div class="cal-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => `<span class="cal-wd">${w}</span>`).join('')}${cells}</div>
-      <div class="legend"><span><i class="mk mk-task"></i>Tasks</span><span><i class="mk mk-chore"></i>Chores</span><span><i class="mk mk-block"></i>Time blocks</span></div>
+      <div class="legend"><span><i class="mk mk-event"></i>Events</span><span><i class="mk mk-task"></i>Tasks</span><span><i class="mk mk-chore"></i>Chores</span><span><i class="mk mk-block"></i>Time blocks</span></div>
     </div>`;
     html += `<div class="group-head day-head"><h2>${longDate(calSel)}</h2>${calSel !== t ? '<button class="edit-btn" data-act="cal-today">Today</button>' : ''}</div>`;
     if (!tasks.length && !chores.length && !blocks.length) {
-      html += `<div class="empty small"><p>Nothing planned for this day. Tap + to add a task due on it.</p></div>`;
+      html += `<div class="empty small"><p>Nothing planned for this day. Tap + to add a task or event on it.</p></div>`;
     }
-    html += plainGroup('Tasks', tasks.map(todoRow).join(''), tasks.length, 'c-yellow');
+    html += plainGroup('Tasks & events', tasks.map(todoRow).join(''), tasks.length, 'c-yellow');
     html += plainGroup('Chores', chores.map(c => calChoreRow(c, calSel)).join(''), chores.length, 'c-purple');
     html += plainGroup('Time blocks', blocks.map(blockLine).join(''), blocks.length, 'c-green');
     return html;
@@ -869,7 +901,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   }
   function renderBlocks() {
     const t = today();
-    const list = state.blocks.filter(b => b.date === blkDate).sort((a, b) => a.start - b.start || a.end - b.end);
+    // Timed tasks and events sit on the timeline next to the blocks.
+    const list = state.blocks.filter(b => b.date === blkDate)
+      .concat(state.todos.filter(x => x.due === blkDate && x.start != null))
+      .sort((a, b) => a.start - b.start || a.end - b.end);
     const startH = Math.min(6, ...list.map(b => Math.floor(b.start / 60)));
     const y = m => (m - startH * 60) * HOUR / 60;
     // Overlapping blocks share the width in columns.
@@ -893,9 +928,12 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const nowLine = blkDate === t ? `<div class="now" style="top: ${y(nowMin)}px"></div>` : '';
     const blocks = list.map(b => {
       const L = lay[b.id], hgt = Math.max(y(b.end) - y(b.start), 24);
-      return `<div class="block bc-${b.color} ${hgt < 46 ? 'short' : ''}" data-row-id="${b.id}" data-block="${b.id}" data-act="edit-block" data-id="${b.id}" role="button" tabindex="0"
+      const todo = 'done' in b, pre = todo ? (isEvent(b) ? 'Event · ' : 'Task · ') : '';
+      const cls = todo ? `${isEvent(b) ? 'bc-event' : 'bc-task'} ${isPast(b) ? 'is-done' : ''}` : `bc-${b.color}`;
+      const bell = todo ? b.remind && !isPast(b) : b.remindBefore != null;
+      return `<div class="block ${cls} ${hgt < 46 ? 'short' : ''}" data-row-id="${b.id}" data-block="${b.id}" data-act="${todo ? 'edit-todo' : 'edit-block'}" data-id="${b.id}" role="button" tabindex="0"
         style="top: ${y(b.start)}px; height: ${hgt}px; left: calc(${L.col} * 100% / ${L.n}); width: calc(100% / ${L.n} - 6px)">
-        <span class="b-title">${b.remindBefore != null ? ICON.bell : ''}${esc(b.title)}</span><span class="b-time">${fmtTime(b.start)} – ${fmtTime(b.end)}</span><span class="grip" data-grip="1"></span>
+        <span class="b-title">${bell ? ICON.bell : ''}${esc(b.title)}</span><span class="b-time" data-prefix="${pre}">${pre}${fmtTime(b.start)} – ${fmtTime(b.end)}</span><span class="grip" data-grip="1"></span>
       </div>`;
     }).join('');
     return `${banner()}
@@ -906,7 +944,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       </div>
       ${blkDate !== t ? '<button class="edit-btn back-today" data-act="blk-today">Back to today</button>' : ''}
       <div class="timeline" id="timeline" data-start="${startH}" style="height: ${y(DAY_END)}px">${hours}${nowLine}<div class="lane">${blocks}</div></div>
-      <p class="hint">Tap an empty spot to add a block. Drag a block to move it, or drag its bottom edge to change how long it lasts.</p>`;
+      <p class="hint">Tap an empty spot to add a block. Drag a block to move it, or drag its bottom edge to change how long it lasts. Tasks and events with a time show up here too.</p>`;
   }
 
   function render() {
@@ -975,7 +1013,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
 
   function openTodoSheet(id, due = today()) {
     const x = id ? state.todos.find(t => t.id === id) : null;
-    sheet = { kind: 'todo', id, draft: x ? { ...x } : { title: '', due, high: false }, confirmDelete: false };
+    sheet = { kind: 'todo', id, draft: x ? { type: 'task', start: null, end: null, label: null, ...x } : { title: '', type: 'task', due, start: null, end: null, label: null, high: false }, confirmDelete: false };
     drawSheet();
     setTimeout(() => { const el = $('f-title'); if (el && !id) el.focus(); }, 50);
   }
@@ -1004,6 +1042,13 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     setTimeout(() => { const el = $('f-title'); if (el && !id) el.focus(); }, 50);
   }
   const NOUN = { todo: 'task', chore: 'chore', habit: 'habit', block: 'time block' };
+  const nounOf = () => sheet.kind === 'todo' && sheet.draft.type === 'event' ? 'event' : NOUN[sheet.kind];
+  // A starting time slot: the next whole hour today, otherwise 9 AM.
+  function defaultSlot(date) {
+    const now = new Date();
+    const start = date === today() ? Math.min((now.getHours() + 1) * 60, DAY_END - 60) : 9 * 60;
+    return { start, end: start + 60 };
+  }
   const LIST = { todo: 'todos', chore: 'chores', habit: 'habits', block: 'blocks' };
   const BLOCK_COLORS = [['yellow', 'var(--yellow)'], ['blue', 'var(--today-blue)'], ['pink', 'var(--red)'], ['purple', 'var(--purple)'], ['green', 'var(--lime)']];
   const hhmm = m => `${pad(Math.floor(Math.min(m, DAY_END - 1) / 60))}:${pad(Math.min(m, DAY_END - 1) % 60)}`;
@@ -1033,16 +1078,34 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const d = sheet.draft;
     let body = '';
     if (sheet.kind === 'todo') {
+      const ev = d.type === 'event', timed = d.start != null;
       body = `
-        <label class="field"><span>Task</span><input class="input" id="f-title" value="${esc(d.title)}" placeholder="What needs doing?" autocomplete="off"></label>
-        <div class="field"><span>Due</span>
+        <div class="field"><span>Type</span><div class="seg">
+          <button class="chip" data-act="ttype" data-v="task" aria-pressed="${!ev}">Task</button>
+          <button class="chip ev" data-act="ttype" data-v="event" aria-pressed="${ev}">Event</button>
+        </div></div>
+        <label class="field"><span>${ev ? 'Event' : 'Task'}</span><input class="input" id="f-title" value="${esc(d.title)}" placeholder="${ev ? 'e.g. Dinner with Sam' : 'What needs doing?'}" autocomplete="off"></label>
+        <div class="field"><span>${ev ? 'Date' : 'Due'}</span>
           <div class="seg">
             <button class="chip" data-act="due" data-v="${today()}" aria-pressed="${d.due === today()}">Today</button>
             <button class="chip" data-act="due" data-v="${addDays(today(), 1)}" aria-pressed="${d.due === addDays(today(), 1)}">Tomorrow</button>
-            <button class="chip" data-act="due" data-v="" aria-pressed="${!d.due}">No date</button>
+            ${ev ? '' : `<button class="chip" data-act="due" data-v="" aria-pressed="${!d.due}">No date</button>`}
           </div>
           <input class="input" type="date" id="f-due" value="${d.due || ''}">
         </div>
+        <div class="field"><span>Time</span>
+          <div class="seg">
+            <button class="chip" data-act="slot" data-v="" aria-pressed="${!timed}">${ev ? 'All day' : 'No time'}</button>
+            <button class="chip" data-act="slot" data-v="1" aria-pressed="${timed}">Pick a time</button>
+          </div>
+          ${timed ? `<div class="inline times">
+            <input class="input" type="time" id="f-tstart" step="900" value="${hhmm(d.start)}" aria-label="Start time">
+            <span>to</span>
+            <input class="input" type="time" id="f-tend" step="900" value="${hhmm(d.end)}" aria-label="End time">
+          </div>` : ''}
+        </div>
+        <div class="field"><span>Label</span><div class="seg">${LABELS.map(([k, l]) =>
+          `<button class="chip lab-${k}" data-act="tlabel" data-v="${k}" aria-pressed="${d.label === k}">${l}</button>`).join('')}</div></div>
         <div class="field"><span>Priority</span><div class="seg">
           <button class="chip imp" data-act="high" aria-pressed="${!!d.high}">Important</button></div></div>${remField()}`;
     } else if (sheet.kind === 'habit') {
@@ -1082,7 +1145,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         <label class="field"><span>${sheet.id ? 'Next due' : 'Starting'}</span><input class="input" type="date" id="f-start" value="${d.start}"></label>${remField()}`;
     }
     const isEdit = !!sheet.id;
-    const noun = NOUN[sheet.kind];
+    const noun = nounOf();
     const inner = `
           <div class="grabber"></div>
           <div class="sheet-head"><h2>${isEdit ? 'Edit' : 'New'} ${noun}</h2><button type="button" class="link-btn" data-act="close">Cancel</button></div>
@@ -1113,7 +1176,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       if (sheet.kind === 'todo') { if (v('f-rdate')) d.remind = `${v('f-rdate')}T${v('f-rtime')}`; }
       else d.remindAt = v('f-rtime');
     }
-    if (sheet.kind === 'todo') { if (v('f-due') !== undefined) d.due = v('f-due') || null; }
+    if (sheet.kind === 'todo') {
+      if (v('f-due') !== undefined) d.due = v('f-due') || null;
+      if (v('f-tstart')) d.start = toMin(v('f-tstart'));
+      if (v('f-tend')) d.end = toMin(v('f-tend'));
+    }
     else if (sheet.kind === 'block') {
       if (v('f-date')) d.date = v('f-date');
       if (v('f-bstart')) d.start = toMin(v('f-bstart'));
@@ -1131,14 +1198,20 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const d = sheet.draft;
     const err = msg => { const el = $('f-err'); el.textContent = msg; el.hidden = false; };
     const title = (d.title || '').trim();
-    if (!title) return err(`Give the ${NOUN[sheet.kind]} a name.`);
+    if (!title) return err(`Give the ${nounOf()} a name.`);
     if (sheet.kind === 'todo') {
+      const ev = d.type === 'event', timed = d.start != null;
+      if (ev && !d.due) return err('Pick a day for the event.');
+      if (timed && !d.due) return err('Pick a day for the time slot.');
+      if (timed && d.end <= d.start) return err('The end time needs to be after the start time.');
+      const data = { title, type: ev ? 'event' : 'task', due: d.due || null, start: timed ? d.start : null, end: timed ? d.end : null,
+        label: d.label || null, high: !!d.high, remind: d.remind || null };
       if (sheet.id) {
         const x = state.todos.find(t => t.id === sheet.id);
-        if ((x.due || null) !== (d.due || null)) delete x.rank;
-        Object.assign(x, { title, due: d.due || null, high: !!d.high, remind: d.remind || null });
+        if ((x.due || null) !== data.due) delete x.rank;
+        Object.assign(x, data);
       }
-      else { const nid = uid(); popId = nid; state.todos.push({ id: nid, title, due: d.due || null, high: !!d.high, done: false, remind: d.remind || null }); }
+      else { const nid = uid(); popId = nid; state.todos.push({ id: nid, ...data, done: false }); }
     } else if (sheet.kind === 'habit') {
       if (!d.days.length) return err('Pick at least one day of the week.');
       if (sheet.id) Object.assign(state.habits.find(x => x.id === sheet.id), { title, days: d.days.slice(), remindAt: d.remindAt || null });
@@ -1232,7 +1305,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'rem-toggle': {
         syncDraft(); const d = sheet.draft;
         const soon = hhmm(Math.min((new Date().getHours() + 1) * 60, DAY_END - 1));
-        if (sheet.kind === 'todo') d.remind = d.remind ? null : `${d.due || t}T${d.due && d.due > t ? '09:00' : soon}`;
+        if (sheet.kind === 'todo') d.remind = d.remind ? null : `${d.due || t}T${d.start != null ? hhmm(Math.max(d.start - 15, 0)) : d.due && d.due > t ? '09:00' : soon}`;
         else d.remindAt = d.remindAt ? null : '09:00';
         drawSheet(); break;
       }
@@ -1240,7 +1313,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'to-iphone': {
         syncDraft();
         const d = sheet.draft;
-        if (!(d.title || '').trim()) { const er = $('f-err'); er.textContent = `Give the ${NOUN[sheet.kind]} a name first.`; er.hidden = false; break; }
+        if (!(d.title || '').trim()) { const er = $('f-err'); er.textContent = `Give the ${nounOf()} a name first.`; er.hidden = false; break; }
         saveIcs(d.title.trim(), buildIcs(sheet.kind, d, sheet.id || uid()));
         break;
       }
@@ -1249,7 +1322,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'rem-done': {
         const k = el.dataset.kind;
         state.acked[el.dataset.key] = true;
-        if (k === 'todo') { const x = state.todos.find(i => i.id === id); if (x) { x.done = true; x.doneOn = t; } }
+        if (k === 'todo' || k === 'event') { const x = state.todos.find(i => i.id === id); if (x) { x.done = true; x.doneOn = t; } }
         else if (k === 'chore') { const c = state.chores.find(i => i.id === id); if (c && c.lastDone !== t) { c.prevNext = c.next; c.lastDone = t; c.next = nextAfter(c.rule, t); } }
         else if (k === 'habit') { const x = state.habits.find(i => i.id === id); if (x) x.log[t] = true; }
         save(); render(); checkReminders(); break;
@@ -1282,11 +1355,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         break;
       }
       case 'clear-done': {
-        const items = state.todos.map((x, i) => [i, x]).filter(([, x]) => x.done);
+        const items = state.todos.map((x, i) => [i, x]).filter(([, x]) => isPast(x));
         animateOut(items.map(([, x]) => x.id), () => {
-          state.todos = state.todos.filter(x => !x.done);
+          state.todos = state.todos.filter(x => !isPast(x));
           undo = { name: 'todos', items };
-          save(); render(); toast(`Deleted ${plural(items.length, 'completed task')}`);
+          save(); render(); toast(`Deleted ${plural(items.length, 'completed item')}`);
         });
         break;
       }
@@ -1297,7 +1370,23 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'clear-examples': state = { examples: false, tab: state.tab, todos: [], chores: [], habits: [], blocks: [], acked: {}, snoozed: {} }; save(); render(); checkReminders(); break;
       case 'scrim': if (e.target === el) closeSheet(); break;
       case 'close': closeSheet(); break;
-      case 'due': syncDraft(); sheet.draft.due = el.dataset.v || null; drawSheet(); break;
+      case 'due': {
+        syncDraft(); const d = sheet.draft; d.due = el.dataset.v || null;
+        if (!d.due) { d.start = null; d.end = null; }
+        drawSheet(); break;
+      }
+      case 'ttype': {
+        syncDraft(); const d = sheet.draft; d.type = el.dataset.v;
+        if (d.type === 'event') { if (!d.due) d.due = t; if (d.start == null) Object.assign(d, defaultSlot(d.due)); }
+        drawSheet(); break;
+      }
+      case 'slot': {
+        syncDraft(); const d = sheet.draft;
+        if (el.dataset.v) { if (!d.due) d.due = t; if (d.start == null) Object.assign(d, defaultSlot(d.due)); }
+        else { d.start = null; d.end = null; }
+        drawSheet(); break;
+      }
+      case 'tlabel': syncDraft(); sheet.draft.label = sheet.draft.label === el.dataset.v ? null : el.dataset.v; drawSheet(); break;
       case 'high': syncDraft(); sheet.draft.high = !sheet.draft.high; drawSheet(); break;
       case 'rtype': {
         syncDraft(); const r = sheet.draft.rule; r.type = el.dataset.v;
@@ -1352,7 +1441,9 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       if (at <= now && now - at < 864e5 && !state.acked[key] && (state.snoozed[key] || 0) <= now) out.push({ key, at, kind, id, title, when });
     };
     state.todos.forEach(x => {
-      if (!x.done && x.remind) add(`t:${x.id}:${x.remind}`, atMs(x.remind.slice(0, 10), toMin(x.remind.slice(11))), 'todo', x.id, x.title, `Reminder for ${fmtTime(toMin(x.remind.slice(11)))}`);
+      if (x.done || !x.remind) return;
+      const when = x.start != null ? `${isEvent(x) ? 'Starts' : 'Scheduled'} at ${fmtTime(x.start)}` : `Reminder for ${fmtTime(toMin(x.remind.slice(11)))}`;
+      add(`t:${x.id}:${x.remind}`, atMs(x.remind.slice(0, 10), toMin(x.remind.slice(11))), isEvent(x) ? 'event' : 'todo', x.id, x.title, when);
     });
     state.chores.forEach(c => {
       if (!c.remindAt || c.next > t) return;
@@ -1373,7 +1464,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     if (!list.length) { el.hidden = true; shownKey = null; return; }
     const r = list[0], fresh = r.key !== shownKey;
     shownKey = r.key;
-    const label = { todo: 'Task reminder', chore: 'Chore reminder', habit: 'Habit reminder', block: 'Time block' }[r.kind];
+    const label = { todo: 'Task reminder', event: 'Event reminder', chore: 'Chore reminder', habit: 'Habit reminder', block: 'Time block' }[r.kind];
     const canDone = r.kind !== 'block';
     el.innerHTML = `<div class="r-top">
         <span class="r-icon">${ICON.bell}</span>
@@ -1422,7 +1513,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const allDay = date => { lines.push(`DTSTART;VALUE=DATE:${ymd(date)}`, `DTEND;VALUE=DATE:${ymd(addDays(date, 1))}`); return 'TRIGGER:PT9H'; };
     let trigger;
     if (kind === 'todo') {
-      trigger = d.remind ? timed(d.remind.slice(0, 10), toMin(d.remind.slice(11)), 30, 0) : allDay(d.due || today());
+      if (d.start != null && d.due) {
+        const before = d.remind ? Math.max(0, Math.round((atMs(d.due, d.start) - atMs(d.remind.slice(0, 10), toMin(d.remind.slice(11)))) / 60000)) : 0;
+        trigger = timed(d.due, d.start, d.end - d.start, before);
+      } else trigger = d.remind ? timed(d.remind.slice(0, 10), toMin(d.remind.slice(11)), 30, 0) : allDay(d.due || today());
     } else if (kind === 'block') {
       trigger = timed(d.date, d.start, d.end - d.start, d.remindBefore || 0);
     } else {
@@ -1459,7 +1553,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   document.addEventListener('pointerdown', e => {
     const el = e.target.closest('[data-block]');
     if (!el) return;
-    const b = state.blocks.find(x => x.id === el.dataset.block);
+    const b = state.blocks.find(x => x.id === el.dataset.block) || state.todos.find(x => x.id === el.dataset.block);
     if (!b) return;
     drag = { b, el, y0: e.clientY, pid: e.pointerId, mode: e.target.closest('[data-grip]') ? 'resize' : 'move', moved: false, start: b.start, end: b.end };
     try { el.setPointerCapture(e.pointerId); } catch (err) {}
@@ -1481,7 +1575,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     }
     drag.el.style.top = (drag.start - min0) * HOUR / 60 + 'px';
     drag.el.style.height = Math.max((drag.end - drag.start) * HOUR / 60, 24) + 'px';
-    drag.el.querySelector('.b-time').textContent = `${fmtTime(drag.start)} – ${fmtTime(drag.end)}`;
+    const bt = drag.el.querySelector('.b-time');
+    bt.textContent = `${bt.dataset.prefix || ''}${fmtTime(drag.start)} – ${fmtTime(drag.end)}`;
   });
   const endDrag = e => {
     if (!drag || e.pointerId !== drag.pid) return;
