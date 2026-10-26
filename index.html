@@ -158,10 +158,10 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 
 .fab {
   position: absolute; right: max(18px, calc(env(safe-area-inset-right, 0px) + 18px)); bottom: calc(var(--nav-h) + 30px);
-  width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--ink); background: var(--yellow); color: var(--ink);
+  width: 48px; height: 48px; border-radius: 50%; border: 3px solid var(--ink); background: var(--yellow); color: var(--ink);
   display: grid; place-items: center; box-shadow: var(--shadow);
 }
-.fab svg { width: 30px; height: 30px; }
+.fab svg { width: 22px; height: 22px; }
 .fab[hidden] { display: none; }
 
 nav.tabs {
@@ -604,7 +604,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
 
   // An event whose day has passed counts as finished.
   const isEvent = x => x.type === 'event';
-  const isPast = x => x.done || (isEvent(x) && !!x.due && x.due < today());
+  // A multi-day event runs from due through until.
+  const endDay = x => (isEvent(x) && x.until) || x.due;
+  const onDay = (x, s) => !!x.due && x.due <= s && endDay(x) >= s;
+  const isPast = x => x.done || (isEvent(x) && !!x.due && endDay(x) < today());
+  const shortDate = s => { const d = parse(s); return `${MO[d.getMonth()]} ${ordinal(d.getDate())}`; };
   const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores'], ['holiday', 'Holiday']];
   const labelPill = l => { const f = LABELS.find(([k]) => k === l); return f ? `<span class="pill lab-${f[0]}">${f[1]}</span>` : ''; };
   function dueChip(s, done) {
@@ -625,7 +629,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     if (state.tab === 'todo') {
       const live = state.todos.filter(x => !isPast(x));
       const due = live.filter(x => !isEvent(x) && x.due && x.due <= t).length;
-      const evs = live.filter(x => isEvent(x) && x.due === t).length;
+      const evs = live.filter(x => isEvent(x) && onDay(x, t)).length;
       const open = live.length;
       const bits = [due && `<b>${plural(due, 'task')}</b> due`, evs && `<b>${plural(evs, 'event')}</b>`].filter(Boolean);
       html = bits.length ? `${bits.join(' and ')} today, ${open} open in all` : open ? `Nothing due today, ${open} open in all` : 'All clear';
@@ -640,7 +644,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       html = due.length ? `<b>${got} of ${due.length}</b> habits done today` : 'No habits scheduled today';
     } else if (state.tab === 'calendar') {
       const mo = calMonth;
-      const inMo = state.todos.filter(x => !x.done && x.due && x.due.startsWith(mo));
+      const inMo = state.todos.filter(x => !x.done && x.due && x.due <= `${mo}-31` && endDay(x) >= `${mo}-01`);
       const tasks = inMo.filter(x => !isEvent(x)).length, evs = inMo.length - tasks;
       const blocks = state.blocks.filter(b => b.date.startsWith(mo)).length;
       html = `<b>${plural(tasks, 'task')}</b> due, ${plural(evs, 'event')} and ${plural(blocks, 'time block')} in ${MONTHS[Number(mo.slice(5)) - 1]}`;
@@ -666,7 +670,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   // ---------- To-Do view ----------
   function todoRow(x) {
     const done = isPast(x);
-    const meta = dueChip(x.due, done)
+    const range = isEvent(x) && x.until;
+    const meta = (range ? `<span class="pill ${!done && onDay(x, today()) ? 'today' : ''}">${shortDate(x.due)} – ${shortDate(x.until)}</span>` : dueChip(x.due, done))
       + (x.start != null ? `<span class="pill">${fmtTime(x.start)} – ${fmtTime(x.end)}</span>` : '')
       + labelPill(x.label)
       + (x.high && !done ? '<span class="pill flag">Important</span>' : '')
@@ -704,8 +709,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const t = today();
     const open = state.todos.filter(x => !isPast(x));
     const byDue = ranked((a, b) => (a.due || '9999').localeCompare(b.due || '9999') || (a.start ?? DAY_END) - (b.start ?? DAY_END) || (b.high - a.high));
-    const late = open.filter(x => x.due && x.due < t).sort(byDue);
-    const now = open.filter(x => x.due === t).sort(byDue);
+    const late = open.filter(x => x.due && x.due < t && !isEvent(x)).sort(byDue);
+    const now = open.filter(x => isEvent(x) ? onDay(x, t) : x.due === t).sort(byDue);
     const soon = open.filter(x => x.due && x.due > t).sort(byDue);
     const any = open.filter(x => !x.due).sort(ranked((a, b) => b.high - a.high));
     const done = state.todos.filter(isPast).sort((a, b) => (b.doneOn || b.due || '').localeCompare(a.doneOn || a.due || ''));
@@ -853,7 +858,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const from = `${calMonth}-01`, to = `${calMonth}-${pad(n)}`;
     const marks = {};
     const bump = (s, k) => { (marks[s] = marks[s] || {})[k] = true; };
-    state.todos.forEach(x => { if (x.due && x.due >= from && x.due <= to && !x.done) bump(x.due, isEvent(x) ? 'event' : 'task'); });
+    state.todos.forEach(x => {
+      if (!x.due || x.done) return;
+      for (let s = x.due > from ? x.due : from, end = endDay(x) < to ? endDay(x) : to; s <= end; s = addDays(s, 1)) bump(s, isEvent(x) ? 'event' : 'task');
+    });
     state.chores.forEach(c => choreDates(c, from, to).forEach(s => bump(s, 'chore')));
     state.blocks.forEach(b => { if (b.date >= from && b.date <= to) bump(b.date, 'block'); });
     let cells = '';
@@ -865,7 +873,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         <span class="marks">${k.event ? '<i class="mk mk-event"></i>' : ''}${k.task ? '<i class="mk mk-task"></i>' : ''}${k.chore ? '<i class="mk mk-chore"></i>' : ''}${k.block ? '<i class="mk mk-block"></i>' : ''}</span>
       </button>`;
     }
-    const tasks = state.todos.filter(x => x.due === calSel).sort((a, b) => (a.start ?? DAY_END) - (b.start ?? DAY_END));
+    const tasks = state.todos.filter(x => onDay(x, calSel)).sort((a, b) => (a.start ?? DAY_END) - (b.start ?? DAY_END));
     const chores = state.chores.filter(c => choreDates(c, calSel, calSel).size);
     const blocks = state.blocks.filter(b => b.date === calSel).sort((a, b) => a.start - b.start);
     let html = banner();
@@ -904,7 +912,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const t = today();
     // Timed tasks and events sit on the timeline next to the blocks.
     const list = state.blocks.filter(b => b.date === blkDate)
-      .concat(state.todos.filter(x => x.due === blkDate && x.start != null))
+      .concat(state.todos.filter(x => onDay(x, blkDate) && x.start != null))
       .sort((a, b) => a.start - b.start || a.end - b.end);
     const startH = Math.min(6, ...list.map(b => Math.floor(b.start / 60)));
     const y = m => (m - startH * 60) * HOUR / 60;
@@ -1014,7 +1022,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
 
   function openTodoSheet(id, due = today()) {
     const x = id ? state.todos.find(t => t.id === id) : null;
-    sheet = { kind: 'todo', id, draft: x ? { type: 'task', start: null, end: null, label: null, ...x } : { title: '', type: 'task', due, start: null, end: null, label: null, high: false }, confirmDelete: false };
+    sheet = { kind: 'todo', id, draft: x ? { type: 'task', start: null, end: null, label: null, until: null, ...x } : { title: '', type: 'task', due, until: null, start: null, end: null, label: null, high: false }, confirmDelete: false };
     drawSheet();
     setTimeout(() => { const el = $('f-title'); if (el && !id) el.focus(); }, 50);
   }
@@ -1086,7 +1094,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
           <button class="chip ev" data-act="ttype" data-v="event" aria-pressed="${ev}">Event</button>
         </div></div>
         <label class="field"><span>${ev ? 'Event' : 'Task'}</span><input class="input" id="f-title" value="${esc(d.title)}" placeholder="${ev ? 'e.g. Dinner with Sam' : 'What needs doing?'}" autocomplete="off"></label>
-        <div class="field"><span>${ev ? 'Date' : 'Due'}</span>
+        <div class="field"><span>${ev ? (d.until ? 'Starts' : 'Date') : 'Due'}</span>
           <div class="seg">
             <button class="chip" data-act="due" data-v="${today()}" aria-pressed="${d.due === today()}">Today</button>
             <button class="chip" data-act="due" data-v="${addDays(today(), 1)}" aria-pressed="${d.due === addDays(today(), 1)}">Tomorrow</button>
@@ -1094,6 +1102,13 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
           </div>
           <input class="input" type="date" id="f-due" value="${d.due || ''}">
         </div>
+        ${ev ? `<div class="field"><span>Ends</span>
+          <div class="seg">
+            <button class="chip" data-act="multi" data-v="" aria-pressed="${!d.until}">Same day</button>
+            <button class="chip" data-act="multi" data-v="1" aria-pressed="${!!d.until}">Later date</button>
+          </div>
+          ${d.until ? `<input class="input" type="date" id="f-until" value="${d.until}" min="${d.due || ''}" aria-label="End date">` : ''}
+        </div>` : ''}
         <div class="field"><span>Time</span>
           <div class="seg">
             <button class="chip" data-act="slot" data-v="" aria-pressed="${!timed}">${ev ? 'All day' : 'No time'}</button>
@@ -1103,7 +1118,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
             <input class="input" type="time" id="f-tstart" step="900" value="${hhmm(d.start)}" aria-label="Start time">
             <span>to</span>
             <input class="input" type="time" id="f-tend" step="900" value="${hhmm(d.end)}" aria-label="End time">
-          </div>` : ''}
+          </div>${ev && d.until ? '<p class="hint">The time repeats on each day of the event.</p>' : ''}` : ''}
         </div>
         <div class="field"><span>Label</span><div class="seg">${LABELS.map(([k, l]) =>
           `<button class="chip lab-${k}" data-act="tlabel" data-v="${k}" aria-pressed="${d.label === k}">${l}</button>`).join('')}</div></div>
@@ -1179,6 +1194,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     }
     if (sheet.kind === 'todo') {
       if (v('f-due') !== undefined) d.due = v('f-due') || null;
+      if (v('f-until')) d.until = v('f-until');
       if (v('f-tstart')) d.start = toMin(v('f-tstart'));
       if (v('f-tend')) d.end = toMin(v('f-tend'));
     }
@@ -1205,7 +1221,9 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       if (ev && !d.due) return err('Pick a day for the event.');
       if (timed && !d.due) return err('Pick a day for the time slot.');
       if (timed && d.end <= d.start) return err('The end time needs to be after the start time.');
-      const data = { title, type: ev ? 'event' : 'task', due: d.due || null, start: timed ? d.start : null, end: timed ? d.end : null,
+      const until = ev && d.until ? d.until : null;
+      if (until && until <= d.due) return err('The end date needs to be after the start date.');
+      const data = { title, type: ev ? 'event' : 'task', due: d.due || null, until, start: timed ? d.start : null, end: timed ? d.end : null,
         label: d.label || null, high: !!d.high, remind: d.remind || null };
       if (sheet.id) {
         const x = state.todos.find(t => t.id === sheet.id);
@@ -1373,7 +1391,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'close': closeSheet(); break;
       case 'due': {
         syncDraft(); const d = sheet.draft; d.due = el.dataset.v || null;
-        if (!d.due) { d.start = null; d.end = null; }
+        if (!d.due) { d.start = null; d.end = null; d.until = null; }
+        else if (d.until && d.until <= d.due) d.until = addDays(d.due, 1);
         drawSheet(); break;
       }
       case 'ttype': {
@@ -1385,6 +1404,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         syncDraft(); const d = sheet.draft;
         if (el.dataset.v) { if (!d.due) d.due = t; if (d.start == null) Object.assign(d, defaultSlot(d.due)); }
         else { d.start = null; d.end = null; }
+        drawSheet(); break;
+      }
+      case 'multi': {
+        syncDraft(); const d = sheet.draft;
+        if (el.dataset.v) { if (!d.due) d.due = t; d.until = addDays(d.due, 1); } else d.until = null;
         drawSheet(); break;
       }
       case 'tlabel': syncDraft(); sheet.draft.label = sheet.draft.label === el.dataset.v ? null : el.dataset.v; drawSheet(); break;
@@ -1517,6 +1541,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       if (d.start != null && d.due) {
         const before = d.remind ? Math.max(0, Math.round((atMs(d.due, d.start) - atMs(d.remind.slice(0, 10), toMin(d.remind.slice(11)))) / 60000)) : 0;
         trigger = timed(d.due, d.start, d.end - d.start, before);
+        if (d.type === 'event' && d.until > d.due) lines.push(`RRULE:FREQ=DAILY;COUNT=${diffDays(d.until, d.due) + 1}`);
+      } else if (d.type === 'event' && d.until > d.due) {
+        lines.push(`DTSTART;VALUE=DATE:${ymd(d.due)}`, `DTEND;VALUE=DATE:${ymd(addDays(d.until, 1))}`);
+        trigger = 'TRIGGER:PT9H';
       } else trigger = d.remind ? timed(d.remind.slice(0, 10), toMin(d.remind.slice(11)), 30, 0) : allDay(d.due || today());
     } else if (kind === 'block') {
       trigger = timed(d.date, d.start, d.end - d.start, d.remindBefore || 0);
