@@ -1,5 +1,5 @@
 // Keeps Dayplan working offline. Network first, so updates arrive when you're online.
-const CACHE = 'dayplan-v4';
+const CACHE = 'dayplan-v5';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'manifest.webmanifest', 'apple-touch-icon.png'])));
   self.skipWaiting();

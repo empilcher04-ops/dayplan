@@ -665,7 +665,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   // ---------- To-Do view ----------
   function todoRow(x) {
     const done = isPast(x);
-    const meta = (isEvent(x) ? '<span class="pill ev">Event</span>' : '') + dueChip(x.due, done)
+    const meta = dueChip(x.due, done)
       + (x.start != null ? `<span class="pill">${fmtTime(x.start)} – ${fmtTime(x.end)}</span>` : '')
       + labelPill(x.label)
       + (x.high && !done ? '<span class="pill flag">Important</span>' : '')
