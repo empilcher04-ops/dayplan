@@ -1,5 +1,5 @@
 // Keeps Dayplan working offline. Network first, so updates arrive when you're online.
-const CACHE = 'dayplan-v3';
+const CACHE = 'dayplan-v4';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'manifest.webmanifest', 'apple-touch-icon.png'])));
   self.skipWaiting();
@@ -9,9 +9,10 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  // no-cache skips the phone's 10-minute HTTP cache, so a fresh copy is used whenever you're online.
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return res;
