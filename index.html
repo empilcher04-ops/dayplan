@@ -141,6 +141,7 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .pill.lab-school, .chip.lab-school[aria-pressed="true"] { background: var(--lime); color: var(--ink); }
 .pill.lab-work, .chip.lab-work[aria-pressed="true"] { background: var(--today-blue); color: #FFFFFF; }
 .pill.lab-chores, .chip.lab-chores[aria-pressed="true"] { background: var(--yellow); color: var(--ink); }
+.pill.lab-holiday, .chip.lab-holiday[aria-pressed="true"] { background: #D9D9D9; color: var(--ink); }
 .row.event .check { border-radius: 0; }
 
 
@@ -604,7 +605,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   // An event whose day has passed counts as finished.
   const isEvent = x => x.type === 'event';
   const isPast = x => x.done || (isEvent(x) && !!x.due && x.due < today());
-  const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores']];
+  const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores'], ['holiday', 'Holiday']];
   const labelPill = l => { const f = LABELS.find(([k]) => k === l); return f ? `<span class="pill lab-${f[0]}">${f[1]}</span>` : ''; };
   function dueChip(s, done) {
     if (!s) return '';
