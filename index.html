@@ -142,6 +142,7 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .pill.lab-work, .chip.lab-work[aria-pressed="true"] { background: var(--today-blue); color: #FFFFFF; }
 .pill.lab-chores, .chip.lab-chores[aria-pressed="true"] { background: var(--yellow); color: var(--ink); }
 .pill.lab-holiday, .chip.lab-holiday[aria-pressed="true"] { background: #D9D9D9; color: var(--ink); }
+.pill.lab-appt, .chip.lab-appt[aria-pressed="true"] { background: var(--purple); color: #FFFFFF; }
 .row.event .check { border-radius: 0; }
 
 
@@ -609,7 +610,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   const onDay = (x, s) => !!x.due && x.due <= s && endDay(x) >= s;
   const isPast = x => x.done || (isEvent(x) && !!x.due && endDay(x) < today());
   const shortDate = s => { const d = parse(s); return `${MO[d.getMonth()]} ${ordinal(d.getDate())}`; };
-  const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores'], ['holiday', 'Holiday']];
+  const LABELS = [['school', 'School'], ['work', 'Work'], ['chores', 'Chores'], ['holiday', 'Holiday'], ['appt', 'Appointments']];
   const labelPill = l => { const f = LABELS.find(([k]) => k === l); return f ? `<span class="pill lab-${f[0]}">${f[1]}</span>` : ''; };
   function dueChip(s, done) {
     if (!s) return '';
