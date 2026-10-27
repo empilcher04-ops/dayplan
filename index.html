@@ -146,6 +146,8 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .row.event .check { border-radius: 0; }
 
 
+.more-btn { display: inline-flex; align-items: center; gap: 6px; }
+.more-btn svg { width: 16px; height: 16px; }
 .disclose { align-self: flex-start; background: var(--card); border: var(--line); border-radius: 0; box-shadow: var(--shadow-sm); padding: 8px 12px; font-weight: 700; font-size: 15px; }
 
 .empty {
@@ -586,6 +588,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   if (TABS.some(t => t.id === hashTab)) state.tab = hashTab;
   if (!TABS.some(t => t.id === state.tab)) state.tab = 'todo';
   let showDone = false;
+  const moreOpen = {};   // groups expanded past their first few rows
   let editing = null;      // key of the section in edit mode, e.g. "todo:Today"
   let groups = {};         // section key -> items as last shown, for reordering
   let undo = null, toastTimer = null;
@@ -695,16 +698,19 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       </div>
     </div>`;
   }
-  function group(title, items, rowFn, cls = '') {
+  function group(title, items, rowFn, cls = '', limit = 0) {
     if (!items.length) return '';
     const kind = rowFn === todoRow ? 'todo' : rowFn === habitRow ? 'habit' : 'chore';
     const key = `${kind}:${title}`;
     groups[key] = items;
     const on = editing === key;
-    const rows = on ? items.map((x, i) => editRow(x, i, items.length, key, kind)).join('') : items.map(rowFn).join('');
+    // Long groups show their first few rows until you tap "Show more". Edit mode always shows them all.
+    const long = !on && limit && items.length > limit, cut = long && !moreOpen[key];
+    const rows = on ? items.map((x, i) => editRow(x, i, items.length, key, kind)).join('') : (cut ? items.slice(0, limit) : items).map(rowFn).join('');
+    const more = long ? `<button class="disclose more-btn" data-act="show-more" data-key="${esc(key)}" aria-expanded="${!cut}">${cut ? `Show ${items.length - limit} more` : 'Show less'}<span style="display: inline-flex; ${cut ? '' : 'transform: rotate(180deg)'}">${ICON.down}</span></button>` : '';
     return `<section class="group ${cls}"><div class="group-head"><h2>${title}</h2>
         <div class="head-actions"><button class="edit-btn" data-act="edit-group" data-key="${esc(key)}" aria-pressed="${on}">${on ? 'Done' : 'Edit'}</button><span class="count">${items.length}</span></div></div>
-      <div class="list">${rows}</div></section>`;
+      <div class="list">${rows}</div>${more}</section>`;
   }
   function renderTodo() {
     const t = today();
@@ -721,7 +727,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     let html = banner();
     html += group('Overdue', late, todoRow, 'late c-pink');
     html += group('Today', now, todoRow, 'c-yellow');
-    html += group('Upcoming', soon, todoRow, 'c-purple');
+    html += group('Upcoming', soon, todoRow, 'c-purple', 3);
     html += group('Anytime', any, todoRow, 'c-green');
     if (!open.length) html += `<div class="empty"><div class="glyph">${ICON.todo}</div><h2>All done</h2><p>Every task is checked off. Tap + to add a task or event.</p></div>`;
     if (done.length) {
@@ -1348,6 +1354,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         save(); render(); checkReminders(); break;
       }
       case 'toggle-done': showDone = !showDone; render(); break;
+      case 'show-more': moreOpen[el.dataset.key] = !moreOpen[el.dataset.key]; render(); break;
       case 'edit-group': {
         const key = el.dataset.key;
         const closing = editing === key ? el.closest('section') : null;
