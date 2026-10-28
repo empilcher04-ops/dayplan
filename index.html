@@ -146,6 +146,16 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .row.event .check { border-radius: 0; }
 
 
+/* Lists */
+.chev { flex: none; font-size: 24px; font-weight: 700; line-height: 1; }
+.back-btn { align-self: flex-start; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.list-head h2 { font-family: var(--display); font-weight: 700; font-size: 26px; margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.quick-add { display: flex; gap: 10px; }
+.quick-add .input { flex: 1; min-width: 0; }
+.quick-add .btn { flex: none; padding: 0 18px; }
+.row.item { min-height: 0; padding-block: 9px; }
+.item-note { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
 .more-btn { display: inline-flex; align-items: center; gap: 6px; }
 .more-btn svg { width: 16px; height: 16px; }
 .disclose { align-self: flex-start; background: var(--card); border: var(--line); border-radius: 0; box-shadow: var(--shadow-sm); padding: 8px 12px; font-weight: 700; font-size: 15px; }
@@ -168,7 +178,7 @@ section.group { display: flex; flex-direction: column; gap: 10px; }
 .fab[hidden] { display: none; }
 
 nav.tabs {
-  flex: none; height: var(--nav-h); box-sizing: border-box; display: grid; grid-template-columns: repeat(5, 1fr);
+  flex: none; height: var(--nav-h); box-sizing: border-box; display: grid; grid-template-columns: repeat(6, 1fr);
   background: var(--card); border: var(--line); border-radius: 0; box-shadow: var(--shadow);
   margin-left: max(16px, env(safe-area-inset-left, 0px)); margin-right: max(16px, env(safe-area-inset-right, 0px));
   margin-bottom: 10px; margin-top: -86px; position: relative; z-index: 5;
@@ -445,6 +455,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5.5 12.5L12 19l6.5-6.5"/></svg>',
     bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16zM10 21h4"/></svg>',
     cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>',
+    lists: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M10.5 8.5h6M10.5 12h6M10.5 15.5h6"/><path d="M7.2 8.5h.1M7.2 12h.1M7.2 15.5h.1" stroke-width="2.6"/></svg>',
     tick: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
   };
   const TABS = [
@@ -452,7 +463,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     { id: 'chores', label: 'Chores' },
     { id: 'habits', label: 'Habits' },
     { id: 'calendar', label: 'Calendar' },
-    { id: 'blocks', label: 'Time Blocks' }
+    { id: 'blocks', label: 'Time Blocks', short: 'Blocks' },
+    { id: 'lists', label: 'Lists' }
   ];
 
   // ---------- dates (local, as YYYY-MM-DD strings) ----------
@@ -513,6 +525,13 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   const uid = () => Math.random().toString(36).slice(2, 10);
   let state;
 
+  function sampleLists() {
+    const it = (title, done = false, note = '') => ({ id: uid(), title, done, ...(note ? { note } : {}) });
+    return [
+      { id: uid(), title: 'Groceries', items: [it('Milk'), it('Eggs', false, 'A dozen'), it('Bread'), it('Spinach'), it('Coffee beans'), it('Bananas', true)] },
+      { id: uid(), title: 'Things I might buy', items: [it('Rain jacket', false, 'Around $80'), it('Desk lamp'), it('Running shoes')] }
+    ];
+  }
   function sampleState() {
     const t = today();
     const dow = parse(t).getDay();
@@ -538,7 +557,8 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         { id: uid(), title: 'Pay rent', rule: { type: 'monthly', dom: 1 }, next: firstDue({ type: 'monthly', dom: 1 }, t) }
       ],
       habits: sampleHabits(t),
-      blocks: sampleBlocks(t)
+      blocks: sampleBlocks(t),
+      lists: sampleLists()
     };
   }
   function sampleHabits(t) {
@@ -573,6 +593,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
           // Saves from before Habits and Time Blocks existed get those lists (with examples if examples are on).
           if (!Array.isArray(s.habits)) s.habits = s.examples ? sampleHabits(today()) : [];
           if (!Array.isArray(s.blocks)) s.blocks = s.examples ? sampleBlocks(today()) : [];
+          if (!Array.isArray(s.lists)) s.lists = s.examples ? sampleLists() : [];
           return s;
         }
       }
@@ -652,6 +673,12 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       const tasks = inMo.filter(x => !isEvent(x)).length, evs = inMo.length - tasks;
       const blocks = state.blocks.filter(b => b.date.startsWith(mo)).length;
       html = `<b>${plural(tasks, 'task')}</b> due, ${plural(evs, 'event')} and ${plural(blocks, 'time block')} in ${MONTHS[Number(mo.slice(5)) - 1]}`;
+    } else if (state.tab === 'lists') {
+      const L = curList();
+      if (L) {
+        const left = L.items.filter(i => !i.done).length;
+        html = left ? `<b>${plural(left, 'item')}</b> left on ${esc(L.title)}` : L.items.length ? `Everything on ${esc(L.title)} is checked off` : `${esc(L.title)} is empty`;
+      } else html = state.lists.length ? `<b>${plural(state.lists.length, 'list')}</b>` : 'No lists yet';
     } else {
       const list = state.blocks.filter(b => b.date === blkDate);
       const mins = list.reduce((s, b) => s + b.end - b.start, 0);
@@ -662,7 +689,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
 
   function renderTabs() {
     $('tabs').innerHTML = TABS.map(t =>
-      `<button class="tab" role="tab" data-tab="${t.id}" aria-selected="${t.id === state.tab}">${ICON[t.id]}<span>${t.label}</span></button>`
+      `<button class="tab" role="tab" data-tab="${t.id}" aria-selected="${t.id === state.tab}">${ICON[t.id]}<span>${t.short || t.label}</span></button>`
     ).join('');
   }
 
@@ -700,7 +727,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   }
   function group(title, items, rowFn, cls = '', limit = 0) {
     if (!items.length) return '';
-    const kind = rowFn === todoRow ? 'todo' : rowFn === habitRow ? 'habit' : 'chore';
+    const kind = rowFn === todoRow ? 'todo' : rowFn === habitRow ? 'habit' : rowFn === listRow ? 'list' : rowFn === itemRow ? 'item' : 'chore';
     const key = `${kind}:${title}`;
     groups[key] = items;
     const on = editing === key;
@@ -963,14 +990,59 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       <p class="hint">Tap an empty spot to add a block. Drag a block to move it, or drag its bottom edge to change how long it lasts. Tasks and events with a time show up here too.</p>`;
   }
 
+  // ---------- Lists view ----------
+  let openList = null;   // id of the list being looked at, or null for all lists
+  const curList = () => state.tab === 'lists' && openList ? state.lists.find(l => l.id === openList) || null : null;
+  function listRow(l) {
+    const left = l.items.filter(i => !i.done).length;
+    return `<div class="row" data-row-id="${l.id}">
+      <button class="row-body" data-act="open-list" data-id="${l.id}">
+        <span class="row-title">${esc(l.title)}</span>
+        <span class="meta"><span>${l.items.length ? (left ? `${plural(left, 'item')} left` : 'All checked off') : 'Empty'}</span></span>
+      </button>
+      <span class="chev" aria-hidden="true">›</span>
+    </div>`;
+  }
+  function itemRow(x) {
+    return `<div class="row item ${x.done ? 'done' : ''}" data-row-id="${x.id}">
+      <button class="check" data-act="toggle-item" data-id="${x.id}" aria-label="${x.done ? 'Uncheck' : 'Check off'}">${ICON.tick}</button>
+      <button class="row-body" data-act="edit-item" data-id="${x.id}">
+        <span class="row-title">${esc(x.title)}</span>${x.note ? `<span class="item-note">${esc(x.note)}</span>` : ''}
+      </button>
+    </div>`;
+  }
+  function renderLists() {
+    const L = curList();
+    if (!L) {
+      openList = null;
+      if (!state.lists.length) {
+        return `<div class="empty"><div class="glyph">${ICON.lists}</div><h2>No lists yet</h2><p>Tap the + button to start a list, like groceries or things you might buy.</p></div>`;
+      }
+      return banner() + group('Your lists', state.lists.slice().sort(ranked((a, b) => state.lists.indexOf(a) - state.lists.indexOf(b))), listRow, 'c-green');
+    }
+    const byOrder = ranked((a, b) => L.items.indexOf(a) - L.items.indexOf(b));
+    const open = L.items.filter(i => !i.done).sort(byOrder), done = L.items.filter(i => i.done).sort(byOrder);
+    let html = `<button class="link-btn back-btn" data-act="list-back">‹ All lists</button>
+      <div class="list-head"><h2>${esc(L.title)}</h2><button class="edit-btn" data-act="edit-list" data-id="${L.id}">Rename</button></div>
+      <form class="quick-add" id="quickAdd" autocomplete="off"><input class="input" id="qa" placeholder="Add an item" enterkeyhint="done" aria-label="New item"><button type="submit" class="btn primary">Add</button></form>`;
+    if (!L.items.length) html += `<div class="empty small"><p>Type above to add your first item. Tap an item later to add a note, like a size or a price.</p></div>`;
+    html += group('To get', open, itemRow, 'c-yellow');
+    if (L.items.length && !open.length) html += `<div class="empty small"><p>Everything is checked off.</p></div>`;
+    if (done.length) {
+      html += group('Checked off', done, itemRow, 'c-purple');
+      html += `<button class="link-btn" data-act="clear-items">Remove checked items</button>`;
+    }
+    return html;
+  }
+
   function render() {
     renderHeader();
     renderTabs();
     const v = state.tab;
     groups = {};
-    const view = { todo: renderTodo, chores: renderChores, habits: renderHabits, calendar: renderCalendar, blocks: renderBlocks }[v];
+    const view = { todo: renderTodo, chores: renderChores, habits: renderHabits, calendar: renderCalendar, blocks: renderBlocks, lists: renderLists }[v];
     $('main').innerHTML = `<div class="view">${view()}</div>`;
-    $('fab').setAttribute('aria-label', { todo: 'Add task', chores: 'Add chore', habits: 'Add habit', calendar: 'Add task on this day', blocks: 'Add time block' }[v]);
+    $('fab').setAttribute('aria-label', { todo: 'Add task', chores: 'Add chore', habits: 'Add habit', calendar: 'Add task on this day', blocks: 'Add time block', lists: curList() ? 'Add item' : 'New list' }[v]);
     if (v === 'blocks' && blkScroll) {
       blkScroll = false;
       const m = $('main'), target = m.querySelector('.timeline .now') || m.querySelector('.timeline .block');
@@ -1057,7 +1129,20 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     drawSheet();
     setTimeout(() => { const el = $('f-title'); if (el && !id) el.focus(); }, 50);
   }
-  const NOUN = { todo: 'task', chore: 'chore', habit: 'habit', block: 'time block' };
+  function openListSheet(id) {
+    const l = id ? state.lists.find(x => x.id === id) : null;
+    sheet = { kind: 'list', id, confirmDelete: false, draft: { title: l ? l.title : '' } };
+    drawSheet();
+    setTimeout(() => { const el = $('f-title'); if (el && !id) el.focus(); }, 50);
+  }
+  function openItemSheet(id) {
+    const x = curList().items.find(i => i.id === id);
+    sheet = { kind: 'item', id, confirmDelete: false, draft: { title: x.title, note: x.note || '' } };
+    drawSheet();
+  }
+  const NOUN = { todo: 'task', chore: 'chore', habit: 'habit', block: 'time block', list: 'list', item: 'item' };
+  // The array an item of this kind lives in. List items live inside the open list.
+  const arrOf = kind => kind === 'item' ? curList().items : state[LIST[kind]];
   const nounOf = () => sheet.kind === 'todo' && sheet.draft.type === 'event' ? 'event' : NOUN[sheet.kind];
   // A starting time slot: the next whole hour today, otherwise 9 AM.
   function defaultSlot(date) {
@@ -1065,7 +1150,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const start = date === today() ? Math.min((now.getHours() + 1) * 60, DAY_END - 60) : 9 * 60;
     return { start, end: start + 60 };
   }
-  const LIST = { todo: 'todos', chore: 'chores', habit: 'habits', block: 'blocks' };
+  const LIST = { todo: 'todos', chore: 'chores', habit: 'habits', block: 'blocks', list: 'lists' };
   const BLOCK_COLORS = [['yellow', 'var(--yellow)'], ['blue', 'var(--today-blue)'], ['pink', 'var(--red)'], ['purple', 'var(--purple)'], ['green', 'var(--lime)']];
   const hhmm = m => `${pad(Math.floor(Math.min(m, DAY_END - 1) / 60))}:${pad(Math.min(m, DAY_END - 1) % 60)}`;
   const toMin = v => { const [a, b] = String(v).split(':').map(Number); return (a || 0) * 60 + (b || 0); };
@@ -1131,6 +1216,11 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
           `<button class="chip lab-${k}" data-act="tlabel" data-v="${k}" aria-pressed="${d.label === k}">${l}</button>`).join('')}</div></div>
         <div class="field"><span>Priority</span><div class="seg">
           <button class="chip imp" data-act="high" aria-pressed="${!!d.high}">Important</button></div></div>${remField()}`;
+    } else if (sheet.kind === 'list') {
+      body = `<label class="field"><span>List name</span><input class="input" id="f-title" value="${esc(d.title)}" placeholder="e.g. Groceries" autocomplete="off"></label>`;
+    } else if (sheet.kind === 'item') {
+      body = `<label class="field"><span>Item</span><input class="input" id="f-title" value="${esc(d.title)}" autocomplete="off"></label>
+        <label class="field"><span>Note</span><input class="input" id="f-note" value="${esc(d.note)}" placeholder="e.g. 2 lbs, or $40 at Target" autocomplete="off"></label>`;
     } else if (sheet.kind === 'habit') {
       const set = d.days.slice().sort().join('');
       body = `
@@ -1175,7 +1265,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
           ${body}
           <p class="error" id="f-err" hidden></p>
           <div class="btn-row"><button type="submit" class="btn primary">${isEdit ? 'Save' : 'Add ' + noun}</button></div>
-          <div class="btn-row"><button type="button" class="btn" data-act="to-iphone">${ICON.cal}Add to iPhone Calendar</button></div>
+          ${sheet.kind === 'list' || sheet.kind === 'item' ? '' : `<div class="btn-row"><button type="button" class="btn" data-act="to-iphone">${ICON.cal}Add to iPhone Calendar</button></div>`}
           ${isEdit ? (sheet.confirmDelete
             ? `<div class="btn-row"><button type="button" class="btn" data-act="cancel-delete">Keep it</button><button type="button" class="btn danger" data-act="do-delete">Delete ${noun}</button></div>`
             : `<div class="btn-row"><button type="button" class="btn danger" data-act="ask-delete">Delete</button></div>`) : ''}
@@ -1195,6 +1285,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const d = sheet.draft;
     const v = id => { const el = $(id); return el ? el.value : undefined; };
     if (v('f-title') !== undefined) d.title = v('f-title');
+    if (v('f-note') !== undefined) d.note = v('f-note');
     if (v('f-rtime')) {
       if (sheet.kind === 'todo') { if (v('f-rdate')) d.remind = `${v('f-rdate')}T${v('f-rtime')}`; }
       else d.remindAt = v('f-rtime');
@@ -1223,7 +1314,13 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const err = msg => { const el = $('f-err'); el.textContent = msg; el.hidden = false; };
     const title = (d.title || '').trim();
     if (!title) return err(`Give the ${nounOf()} a name.`);
-    if (sheet.kind === 'todo') {
+    if (sheet.kind === 'list') {
+      if (sheet.id) state.lists.find(x => x.id === sheet.id).title = title;
+      else { const nid = uid(); state.lists.push({ id: nid, title, items: [] }); openList = nid; $('main').scrollTop = 0; }
+    } else if (sheet.kind === 'item') {
+      const x = curList().items.find(i => i.id === sheet.id);
+      x.title = title; x.note = (d.note || '').trim();
+    } else if (sheet.kind === 'todo') {
       const ev = d.type === 'event', timed = d.start != null;
       if (ev && !d.due) return err('Pick a day for the event.');
       if (timed && !d.due) return err('Pick a day for the time slot.');
@@ -1283,6 +1380,7 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
     const el = e.target.closest('[data-act], [data-tab]');
     if (!el) return;
     if (el.dataset.tab) {
+      if (el.dataset.tab === 'lists' && state.tab === 'lists') openList = null;  // tapping Lists again goes back to all lists
       state.tab = el.dataset.tab; showDone = false; editing = null;
       if (state.tab === 'blocks') blkScroll = true;
       $('main').scrollTop = 0; save(); render(); return;
@@ -1371,12 +1469,12 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         save(); render(); break;
       }
       case 'del-item': {
-        const name = LIST[el.dataset.kind];
+        const arr = arrOf(el.dataset.kind);
         animateOut([id], () => {
-          const idx = state[name].findIndex(x => x.id === id);
+          const idx = arr.findIndex(x => x.id === id);
           if (idx < 0) return;
-          const [item] = state[name].splice(idx, 1);
-          undo = { name, items: [[idx, item]] };
+          const [item] = arr.splice(idx, 1);
+          undo = { arr, items: [[idx, item]] };
           save(); render(); toast(`Deleted “${item.title}”`);
         });
         break;
@@ -1391,10 +1489,10 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
         break;
       }
       case 'undo': {
-        if (undo) { undo.items.forEach(([i, x]) => state[undo.name].splice(i, 0, x)); popId = undo.items.length === 1 ? undo.items[0][1].id : null; undo = null; save(); render(); }
+        if (undo) { undo.items.forEach(([i, x]) => (undo.arr || state[undo.name]).splice(i, 0, x)); popId = undo.items.length === 1 ? undo.items[0][1].id : null; undo = null; save(); render(); }
         hideToast(); break;
       }
-      case 'clear-examples': state = { examples: false, tab: state.tab, todos: [], chores: [], habits: [], blocks: [], acked: {}, snoozed: {} }; save(); render(); checkReminders(); break;
+      case 'clear-examples': state = { examples: false, tab: state.tab, todos: [], chores: [], habits: [], blocks: [], lists: [], acked: {}, snoozed: {} }; openList = null; save(); render(); checkReminders(); break;
       case 'scrim': if (e.target === el) closeSheet(); break;
       case 'close': closeSheet(); break;
       case 'due': {
@@ -1435,9 +1533,30 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
       case 'ask-delete': syncDraft(); sheet.confirmDelete = true; drawSheet(); break;
       case 'cancel-delete': syncDraft(); sheet.confirmDelete = false; drawSheet(); break;
       case 'do-delete': {
-        const list = LIST[sheet.kind], gone = sheet.id;
+        const kind = sheet.kind, gone = sheet.id;
         closeSheet();
+        if (kind === 'list') { const i = state.lists.findIndex(l => l.id === gone), [l] = state.lists.splice(i, 1); undo = { arr: state.lists, items: [[i, l]] }; openList = null; save(); render(); toast(`Deleted “${l.title}”`); break; }
+        if (kind === 'item') { const arr = arrOf('item'); wait(200).then(() => animateOut([gone], () => { arr.splice(arr.findIndex(i => i.id === gone), 1); save(); render(); })); break; }
+        const list = LIST[kind];
         wait(200).then(() => animateOut([gone], () => { state[list] = state[list].filter(i => i.id !== gone); save(); render(); }));
+        break;
+      }
+      case 'open-list': openList = id; editing = null; $('main').scrollTop = 0; render(); break;
+      case 'list-back': openList = null; editing = null; $('main').scrollTop = 0; render(); break;
+      case 'edit-list': openListSheet(id); break;
+      case 'edit-item': openItemSheet(id); break;
+      case 'toggle-item': {
+        const x = curList().items.find(i => i.id === id);
+        const flip = () => { x.done = !x.done; delete x.rank; save(); render(); };
+        x.done ? flip() : animateComplete(id, flip, true); break;
+      }
+      case 'clear-items': {
+        const L = curList(), items = L.items.map((x, i) => [i, x]).filter(([, x]) => x.done);
+        animateOut(items.map(([, x]) => x.id), () => {
+          L.items = L.items.filter(x => !x.done);
+          undo = { arr: L.items, items };
+          save(); render(); toast(`Removed ${plural(items.length, 'checked item')}`);
+        });
         break;
       }
     }
@@ -1450,13 +1569,23 @@ section.c-purple .count, section.c-pink .count { color: #FFFFFF; }
   }
   function hideToast() { $('toast').hidden = true; undo = null; }
 
-  document.addEventListener('submit', e => { if (e.target.id === 'sheetForm') { e.preventDefault(); submitSheet(); } });
+  document.addEventListener('submit', e => {
+    if (e.target.id === 'sheetForm') { e.preventDefault(); submitSheet(); }
+    if (e.target.id === 'quickAdd') {
+      // Adding keeps the keyboard up so you can type the next item straight away.
+      e.preventDefault();
+      const title = $('qa').value.trim(), L = curList();
+      if (title && L) { const nid = uid(); popId = nid; L.items.push({ id: nid, title, done: false }); save(); render(); }
+      const qa = $('qa'); if (qa) qa.focus();
+    }
+  });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheet) closeSheet(); });
   $('fab').addEventListener('click', () => {
     const tab = state.tab;
     if (tab === 'chores') openChoreSheet();
     else if (tab === 'habits') openHabitSheet();
     else if (tab === 'calendar') openTodoSheet(null, calSel);
+    else if (tab === 'lists') { if (curList()) { $('main').scrollTop = 0; $('qa').focus(); } else openListSheet(); }
     else if (tab === 'blocks') {
       const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
       const start = blkDate === today() ? Math.min(Math.ceil(nowMin / 60) * 60, DAY_END - 60) : 9 * 60;
